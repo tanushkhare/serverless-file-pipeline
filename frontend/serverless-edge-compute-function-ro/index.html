@@ -1,0 +1,101 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serverless Edge Compute & Function Router</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="logo">⚡ Serverless Edge Compute & Function Router</div>
+      <div class="badge">Live Microservice Active</div>
+    </div>
+  </header>
+
+  <main class="main-layout">
+    <section class="panel-left">
+      <h2>Data Ingestion & Controls</h2>
+      <p class="subtitle">Sub-millisecond global routing, cold start latency monitoring, edge regional dispatch, and execution memory profiling.</p>
+
+      <div class="input-group">
+        <label for="textInput">Input Ingestion Payload</label>
+        <textarea id="textInput" class="text-area" rows="6">{"event": "user_auth_token_validation", "origin_ip": "157.240.22.35", "target_function": "fn_token_authorizer_v3"}</textarea>
+      </div>
+
+      <button class="btn primary-btn" onclick="executeProcess()">Execute Microservice Pipeline</button>
+
+      <div class="log-card">
+        <h4>Microservice Telemetry</h4>
+        <div id="logBox" class="terminal-log">System standing by for query ingestion...</div>
+      </div>
+    </section>
+
+    <aside class="panel-right">
+      <h2>Pipeline Diagnostics</h2>
+
+      <div class="metric-row">
+        <div class="metric-card">
+          <span class="label">Edge Execution Time</span>
+          <span class="value" id="val1">--</span>
+        </div>
+        <div class="metric-card">
+          <span class="label">Memory Profile</span>
+          <span class="value" id="val2" style="color:#34d399;">--</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Analysis & Synthesis</h3>
+        <ul id="resList">
+          <li>Awaiting pipeline trigger execution...</li>
+        </ul>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    async function executeProcess() {
+      const payloadContent = document.getElementById('textInput').value;
+      const log = document.getElementById('logBox');
+
+      log.innerText = `[${new Date().toLocaleTimeString()}] Pipeline triggered.\n[${new Date().toLocaleTimeString()}] Dispatching payload to nearest edge PoP...\n[${new Date().toLocaleTimeString()}] Querying endpoint: /api/v1/edge/invoke...`;
+
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/v1/edge/invoke", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payload: payloadContent, target_region: "auto-geo" })
+        });
+
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+        const data = await res.json();
+
+        document.getElementById('val1').innerText = `${data.execution_time_ms} ms`;
+        document.getElementById('val1').style.color = data.execution_time_ms < 10.0 ? "#34d399" : "#38bdf8";
+
+        document.getElementById('val2').innerText = `${data.memory_used_mb} MB`;
+
+        let analysisHtml = `
+          <li>Optimal Routed Edge: <code>${data.routed_region}</code></li>
+          <li>Cold Start State: <code>${data.cold_start_detected ? 'COLD (INIT)' : 'WARM (SUB-10MS)'}</code></li>
+          <li>Execution ID: <code>${data.invocation_id}</code></li>
+        `;
+
+        data.active_edge_nodes.forEach(node => {
+          const color = node.status === 'WARM' ? '#34d399' : '#f87171';
+          analysisHtml += `<li><strong>[${node.region_code}]</strong> ${node.edge_location} — <code>${node.latency_ms} ms</code> (<span style="color:${color}; font-weight:600;">${node.status}</span>)</li>`;
+        });
+
+        document.getElementById('resList').innerHTML = analysisHtml;
+        log.innerText += `\n[${new Date().toLocaleTimeString()}] 200 OK: Execution complete. Edge function executed.`;
+
+      } catch (err) {
+        log.innerText += `\n[${new Date().toLocaleTimeString()}] Note: Backend offline (${err.message}).`;
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,11 +1,11 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.routers.edge import router as edge_router
+from backend.app.routers import pipeline_router
 import uvicorn
 
 app = FastAPI(
-    title="Serverless Edge Compute & Function Router API",
-    description="Sub-10ms edge function dispatch, cold start telemetry, and global region routing.",
+    title="Serverless Event-Driven File Pipeline API",
+    description="Asynchronous S3 event notification handling, payload normalization, and sink delivery.",
     version="1.0.0"
 )
 
@@ -17,11 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(edge_router)
+app.include_router(pipeline_router.router)
 
 @app.get("/health")
-async def health():
-    return {"status": "healthy", "service": "serverless-edge-router"}
+async def health_check():
+    return {"status": "healthy", "service": "serverless-file-pipeline"}
 
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

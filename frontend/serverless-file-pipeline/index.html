@@ -1,0 +1,127 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Project 17: Serverless File Pipeline</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="nav-brand">⚡ Serverless Event-Driven File Pipeline</div>
+    <div class="tab-group">
+      <button class="tab-btn active" onclick="switchTab('playground')">Pipeline Visualizer</button>
+      <button class="tab-btn" onclick="switchTab('architecture')">Event Architecture</button>
+      <button class="tab-btn" onclick="switchTab('api')">API Endpoints</button>
+      <button class="tab-btn" onclick="switchTab('roadmap')">Roadmap Specs</button>
+    </div>
+  </nav>
+
+  <main id="tab-playground" class="tab-pane active">
+    <div class="grid-2col">
+      <section class="card">
+        <h2>Simulated S3 Object Put</h2>
+        <p class="subtitle">Dispatches asynchronous file notification events to trigger downstream metadata workers.</p>
+        <div>
+          <label style="font-size:0.85rem; color:#94a3b8;">Uploaded File Name:</label>
+          <input type="text" id="fileName" class="text-input" value="financial_telemetry_2026.parquet">
+        </div>
+        <div>
+          <label style="font-size:0.85rem; color:#94a3b8;">Simulated Object Size (KB):</label>
+          <input type="number" id="fileSize" class="text-input" value="4850">
+        </div>
+        <button class="btn btn-primary" onclick="triggerPipeline()">Emit S3:ObjectCreated Notification</button>
+        <div class="telemetry-box" id="telemetry">Pipeline router mounted on /api/v1/pipeline...</div>
+      </section>
+
+      <section class="card">
+        <h2>Pipeline Processing Telemetry</h2>
+        <div class="metric-row">
+          <div class="metric-box">
+            <span class="label">Processing State</span>
+            <span class="val" id="stateVal" style="color:#34d399;">COMMITTED</span>
+          </div>
+          <div class="metric-box">
+            <span class="label">Worker Latency</span>
+            <span class="val" id="latVal">22.4 ms</span>
+          </div>
+        </div>
+        <div class="card" style="background:#0f172a; margin-top:1rem;">
+          <h3>Dead-Letter Queue Safeguards</h3>
+          <ul class="spec-list">
+            <li>Strict schema & file-type validation</li>
+            <li>Dead-letter queue (DLQ) retry policy: 3 attempts with exponential backoff</li>
+            <li>Metrics emission: Throughput, latency, error count</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <section id="tab-architecture" class="tab-pane">
+    <div class="card">
+      <h2>Serverless Event-Driven Pipeline</h2>
+      <div class="code-box">
+[S3 Bucket: Object Put Event]
+               │
+               ▼
+[MinIO / S3 Event Notification Trigger]
+               │
+               ▼
+   [Async Pipeline Router Worker]
+               │
+        ┌──────┴──────┐
+        ▼             ▼
+[Valid Payload]   [Invalid Payload]
+        │             │
+        ▼             ▼
+[Extract Meta]    [Dead-Letter Queue (DLQ)]
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-api" class="tab-pane">
+    <div class="card">
+      <h2>Endpoints Specification</h2>
+      <div class="code-box">POST /api/v1/pipeline/process
+Request:
+{ "file_name": "telemetry.parquet", "size_kb": 4850 }
+
+Response (200 OK):
+{
+  "status": "PROCESSED",
+  "metadata": { "format": "parquet", "records": 8200 },
+  "latency_ms": 22.4,
+  "dlq_status": "NONE"
+}</div>
+    </div>
+  </section>
+
+  <section id="tab-roadmap" class="tab-pane">
+    <div class="card">
+      <h2>Portfolio Roadmap v2 Implementation Status</h2>
+      <ul class="spec-list">
+        <li>✅ <strong>Contract Mismatch Resolved:</strong> main.py mounts the correct pipeline_router.</li>
+        <li>✅ <strong>Dead-Letter Retries:</strong> Error boundaries catch and quarantine malformed objects.</li>
+        <li>✅ <strong>Processing Metrics:</strong> Collects execution latency and throughput metrics.</li>
+      </ul>
+    </div>
+  </section>
+
+  <script>
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      event.target.classList.add('active');
+    }
+    function triggerPipeline() {
+      const f = document.getElementById('fileName').value;
+      const tel = document.getElementById('telemetry');
+      tel.innerText = `[${new Date().toLocaleTimeString()}] S3:ObjectCreated emitted for '${f}'\n[${new Date().toLocaleTimeString()}] Worker triggered: Extracting parquet schema...`;
+      setTimeout(() => {
+        tel.innerText += `\n[${new Date().toLocaleTimeString()}] Event completed in 22.4ms. Metadata saved to database sink.`;
+      }, 400);
+    }
+  </script>
+</body>
+</html>

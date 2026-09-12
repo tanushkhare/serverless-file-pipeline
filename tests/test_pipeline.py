@@ -9,10 +9,10 @@ def test_health():
     assert res.status_code == 200
     assert res.json()["status"] == "healthy"
 
-def test_s3_file_event_pipeline():
+def test_process_s3_file_event():
     payload = {
-        "bucket_name": "raw-data-bucket",
-        "object_key": "invoices/inv_9981.pdf",
+        "bucket_name": "test-data-bucket",
+        "object_key": "raw/logs/test_file.pdf",
         "file_size_kb": 250.0,
         "mime_type": "application/pdf"
     }
@@ -21,4 +21,5 @@ def test_s3_file_event_pipeline():
     data = res.json()
     assert "EVT-" in data["event_id"]
     assert data["status"] == "PROCESSED_SUCCESSFULLY"
-    assert "parquet" in data["output_destination"]
+    assert data["total_execution_ms"] > 0
+    assert "stage_latencies_ms" in data

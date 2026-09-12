@@ -4,8 +4,8 @@ from backend.app.routers import pipeline_router
 import uvicorn
 
 app = FastAPI(
-    title="Serverless Event-Driven File Pipeline API",
-    description="Asynchronous S3 event notification handling, payload normalization, and sink delivery.",
+    title="Serverless File Processing Pipeline API",
+    description="Event-driven S3 file ingestion, async transformation stages, and metadata routing pipeline.",
     version="1.0.0"
 )
 

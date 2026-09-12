@@ -1,57 +1,71 @@
 ﻿import streamlit as st
 import requests
+import pandas as pd
+import plotly.express as px
 
 st.set_page_config(page_title="Serverless File Pipeline", layout="wide")
 
-st.title("⚡ Event-Driven Serverless File Ingestion Pipeline")
-st.markdown("Automated S3 object creation triggers, asynchronous lambda execution stages, and structured metadata transformation.")
+st.title("⚡ Serverless Event-Driven File Processing Pipeline")
+st.markdown("Automated S3/LocalStack notification handling, async micro-stage execution, and columnar metadata routing.")
 
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.subheader("Simulate S3 Bucket Upload Trigger")
-    bucket = st.text_input("Source S3 Bucket", value="enterprise-raw-ingestion")
-    key = st.text_input("Object Key / Path", value="financial_reports/2026_q3_report.pdf")
-    mime = st.selectbox("MIME Type", ["application/pdf", "text/csv", "application/json", "image/png"])
-    size = st.slider("File Size (KB)", 10.0, 5000.0, 350.0)
+    st.subheader("Simulate S3 File Upload Event")
+    bucket = st.text_input("Target S3 Ingest Bucket", value="enterprise-telemetry-raw-drop")
+    key = st.text_input("Object Key / Storage Path", value="inbound/2026/08/payload_batch_441.pdf")
+    size_kb = st.number_input("File Size (KB)", value=412.8, step=50.0)
+    mime = st.selectbox("Content MIME Type", ["application/pdf", "text/csv", "application/json", "application/parquet"])
 
     if st.button("Dispatch S3 Event Notification", type="primary"):
-        with st.spinner("Processing event-driven transformation pipeline..."):
+        with st.spinner("Invoking serverless transformation pipeline..."):
+            payload = {
+                "bucket_name": bucket,
+                "object_key": key,
+                "file_size_kb": size_kb,
+                "mime_type": mime
+            }
             try:
-                res = requests.post(
-                    "http://localhost:8000/api/v1/pipeline/process-event",
-                    json={"bucket_name": bucket, "object_key": key, "file_size_kb": size, "mime_type": mime},
-                    timeout=5
-                )
+                res = requests.post("http://localhost:8000/api/v1/pipeline/process-event", json=payload, timeout=5)
                 if res.status_code == 200:
                     st.session_state["p17_result"] = res.json()
-                    st.success("File Processed by Serverless Worker!")
+                    st.success("Event Processed Successfully!")
                 else:
                     st.error(f"Pipeline Error: {res.text}")
             except Exception:
-                st.warning("Backend offline. Running client-side simulated pipeline run.")
+                st.warning("Backend offline. Simulating pipeline latency stages.")
                 st.session_state["p17_result"] = {
-                    "event_id": "EVT-SIM339",
+                    "event_id": "EVT-SIM9921",
                     "bucket": bucket,
                     "key": key,
                     "status": "PROCESSED_SUCCESSFULLY",
-                    "stage_latencies_ms": {"s3_event_auth": 11.2, "payload_transformation": 22.4, "downstream_sink_delivery": 10.8},
-                    "total_execution_ms": 44.4,
+                    "stage_latencies_ms": {
+                        "auth_and_validation": 10.4,
+                        "extraction_and_decompression": 21.2,
+                        "metadata_and_routing": 11.5
+                    },
+                    "total_execution_ms": 43.1,
                     "output_destination": f"s3://{bucket}-processed/{key}.parquet",
-                    "timestamp": "2026-08-28T08:15:00Z"
+                    "timestamp": "2026-08-28T11:15:00Z"
                 }
 
 with col2:
     if "p17_result" in st.session_state:
-        res = st.session_state["p17_result"]
-        st.subheader(f"Execution Telemetry: {res['event_id']}")
+        r = st.session_state["p17_result"]
+        st.subheader(f"Execution Event: {r['event_id']}")
         
-        m1, m2 = st.columns(2)
-        m1.metric("Execution Latency", f"{res['total_execution_ms']} ms")
-        m2.metric("Pipeline Status", "SUCCESS", delta="Worker Healthy")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Pipeline Status", "SUCCESS")
+        m2.metric("Total Latency", f"{r['total_execution_ms']} ms")
+        m3.metric("Output Sink", "Parquet")
         
-        st.markdown(f"**Destination Object:** `{res['output_destination']}`")
+        st.write(f"**Destination:** `{r['output_destination']}`")
         
-        st.markdown("#### Stage Latency Breakdown (ms)")
-        for stage, lat in res["stage_latencies_ms"].items():
-            st.info(f"• **{stage.replace('_', ' ').title()}**: `{lat} ms`")
+        stages = r["stage_latencies_ms"]
+        df = pd.DataFrame([
+            {"Stage": "Auth & Presign", "Latency (ms)": stages["auth_and_validation"]},
+            {"Stage": "Decompress & Extract", "Latency (ms)": stages["extraction_and_decompression"]},
+            {"Stage": "Tag & Route", "Latency (ms)": stages["metadata_and_routing"]}
+        ])
+        fig = px.bar(df, x="Stage", y="Latency (ms)", title="Micro-Stage Latency Breakdown", color="Stage")
+        st.plotly_chart(fig, use_container_width=True)
